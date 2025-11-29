@@ -67,33 +67,34 @@ return view.extend({
 		o.inputstyle = 'apply';
 		o.inputtitle = _('Create Backup Now');
 		o.onclick = function() {
-			var path = document.querySelector('select[name="cbid.overlay_backup.main.backup_path"]').value || '/tmp/upload';
-			
-			ui.showModal(_('Creating Backup'), [
-				E('p', { class: 'spinning' }, _('Please wait while the backup is being created...'))
-			]);
+		    var pathSelect = document.querySelector('select[name="cbid.overlay_backup.main.backup_path"]');
+		    var path = pathSelect ? pathSelect.value : (uci.get('overlay_backup', 'main', 'backup_path') || '/tmp/upload');
+		    
+		    ui.showModal(_('Creating Backup'), [
+		        E('p', { class: 'spinning' }, _('Please wait while the backup is being created...'))
+		    ]);
 
-			return fs.exec('/usr/bin/overlay-backup.sh', ['backup', path]).then(function(res) {
-				ui.hideModal();
-				var result = {};
-				try {
-					result = JSON.parse(res.stdout);
-				} catch(e) {
-					result = { success: false, message: 'Parse error' };
-				}
-				
-				if (result.success) {
-					ui.addNotification(null, E('p', _('Backup created successfully: ') + result.filename), 'success');
-					window.location.reload();
-				} else {
-					ui.addNotification(null, E('p', _('Backup failed: ') + (result.message || 'Unknown error')), 'error');
-				}
-			}).catch(function(e) {
-				ui.hideModal();
-				ui.addNotification(null, E('p', _('Backup failed: ') + e.message), 'error');
-			});
+		    return fs.exec('/usr/bin/overlay-backup.sh', ['backup', path]).then(function(res) {
+		        ui.hideModal();
+		        var result = {};
+		        try {
+		            result = JSON.parse(res.stdout);
+		        } catch(e) {
+		            result = { success: false, message: 'Parse error: ' + (res.stdout || res.stderr || 'No output') };
+		        }
+		        
+		        if (result.success) {
+		            ui.addNotification(null, E('p', _('Backup created successfully: ') + result.filename), 'success');
+		            window.location.reload();
+		        } else {
+		            ui.addNotification(null, E('p', _('Backup failed: ') + (result.message || 'Unknown error')), 'error');
+		        }
+		    }).catch(function(e) {
+		        ui.hideModal();
+		        ui.addNotification(null, E('p', _('Backup failed: ') + e.message), 'error');
+		    });
 		};
-
+		
 		o = s.option(form.Flag, 'auto_reboot', _('Auto Reboot After Restore'));
 		o.default = '1';
 
