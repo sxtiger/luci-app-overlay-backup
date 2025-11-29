@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Set executable permissions
+chmod +x /usr/bin/overlay-backup.sh 2>/dev/null
+chmod +x /usr/bin/overlay-restore.sh 2>/dev/null
+
 # Initialize config if not exists
 uci -q get overlay_backup.main > /dev/null || {
 	uci set overlay_backup.main='settings'
@@ -11,8 +15,5 @@ uci -q get overlay_backup.main > /dev/null || {
 # Create upload directory
 mkdir -p /tmp/upload
 
-# Set script permissions
-chmod +x /usr/bin/overlay-backup.sh 2>/dev/null
-chmod +x /usr/bin/overlay-restore.sh 2>/dev/null
-
 exit 0
+EOF
