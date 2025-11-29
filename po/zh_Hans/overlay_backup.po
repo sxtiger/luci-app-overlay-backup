@@ -1,5 +1,7 @@
 msgid ""
-msgstr "Content-Type: text/plain; charset=UTF-8"
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zh_Hans\n"
 
 msgid "Overlay Backup"
 msgstr "Overlay 备份"
@@ -22,11 +24,23 @@ msgstr "创建备份"
 msgid "Create Backup Now"
 msgstr "立即创建备份"
 
+msgid "Creating Backup"
+msgstr "正在创建备份"
+
+msgid "Please wait while the backup is being created..."
+msgstr "正在创建备份，请稍候..."
+
+msgid "Backup created successfully: "
+msgstr "备份创建成功："
+
+msgid "Backup failed: "
+msgstr "备份失败："
+
 msgid "Auto Reboot After Restore"
 msgstr "恢复后自动重启"
 
 msgid "Existing Backups"
-msgstr "已有备份"
+msgstr "现有备份"
 
 msgid "Backup Files"
 msgstr "备份文件"
@@ -58,18 +72,6 @@ msgstr "删除"
 msgid "Restore"
 msgstr "恢复"
 
-msgid "Creating Backup"
-msgstr "正在创建备份"
-
-msgid "Please wait while the backup is being created..."
-msgstr "正在创建备份，请稍候..."
-
-msgid "Backup created successfully: "
-msgstr "备份创建成功："
-
-msgid "Backup failed: "
-msgstr "备份失败："
-
 msgid "Are you sure you want to delete this backup?"
 msgstr "确定要删除此备份吗？"
 
@@ -86,10 +88,10 @@ msgid "Rebooting"
 msgstr "正在重启"
 
 msgid "System is rebooting. Please wait and refresh the page."
-msgstr "系统正在重启。请等待并刷新页面。"
+msgstr "系统正在重启，请稍候并刷新页面。"
 
 msgid "Restore complete. Please reboot manually."
-msgstr "恢复完成。请手动重启。"
+msgstr "恢复完成，请手动重启。"
 
 msgid "Restore failed: "
 msgstr "恢复失败："

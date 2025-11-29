@@ -13,6 +13,8 @@ PKG_MAINTAINER:=sxtiger
 LUCI_TITLE:=LuCI Overlay Backup and Restore
 LUCI_DEPENDS:=+luci-base +tar +gzip
 LUCI_PKGARCH:=all
+LUCI_LANGUAGES:=zh_Hans
+PO_FILES:=po/zh_Hans/overlay_backup.po
 
 include $(TOPDIR)/feeds/luci/luci.mk
 
