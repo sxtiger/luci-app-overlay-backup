@@ -1,0 +1,84 @@
+<%+header%>
+
+<h2 name="content"><%:Backup/Restore Log%></h2>
+
+<div class="cbi-map">
+    <div class="cbi-section">
+        <h3><%:Operation Log%></h3>
+        <div class="cbi-section-descr"><%:View the log of backup and restore operations.%></div>
+        
+        <div class="cbi-value">
+            <label class="cbi-value-title"><%:Log Type%></label>
+            <div class="cbi-value-field">
+                <select id="log_type" class="cbi-input-select">
+                    <option value="backup"><%:Backup Log%></option>
+                    <option value="restore"><%:Restore Log%></option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="cbi-page-actions">
+            <button class="btn cbi-button cbi-button-action" id="btn_refresh"><%:Refresh%></button>
+            <button class="btn cbi-button" id="btn_clear"><%:Clear Log%></button>
+        </div>
+        
+        <div style="margin-top:15px;">
+            <pre id="log_content" style="background:#1a1a1a; color:#f0f0f0; padding:15px; border-radius:4px; max-height:500px; overflow-y:auto; font-family:monospace; font-size:13px; white-space:pre-wrap; word-wrap:break-word;"><%:Loading...%></pre>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+document.addEventListener('DOMContentLoaded', function() {
+    var logTypeSelect = document.getElementById('log_type');
+    var logContent = document.getElementById('log_content');
+    var btnRefresh = document.getElementById('btn_refresh');
+    var btnClear = document.getElementById('btn_clear');
+    
+    function loadLog() {
+        var logType = logTypeSelect.value;
+        fetch('<%=luci.dispatcher.build_url("admin/system/overlay_backup/api/get_log")%>?type=' + logType)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.log && data.log.trim()) {
+                        // Color-code log lines
+                        var coloredLog = data.log
+                            .replace(/\[INFO\]/g, '<span style="color:#4CAF50;">[INFO]</span>')
+                            .replace(/\[WARNING\]/g, '<span style="color:#FF9800;">[WARNING]</span>')
+                            .replace(/\[ERROR\]/g, '<span style="color:#F44336;">[ERROR]</span>')
+                            .replace(/\[NOTICE\]/g, '<span style="color:#2196F3;">[NOTICE]</span>');
+                        logContent.innerHTML = coloredLog;
+                    } else {
+                        logContent.innerHTML = '<span style="color:#888;"><%:No log entries found.%></span>';
+                    }
+                } else {
+                    logContent.innerHTML = '<span style="color:#F44336;"><%:Failed to load log.%></span>';
+                }
+            })
+            .catch(err => {
+                logContent.innerHTML = '<span style="color:#F44336;">Error: ' + err.message + '</span>';
+            });
+    }
+    
+    btnRefresh.addEventListener('click', loadLog);
+    
+    btnClear.addEventListener('click', function() {
+        if (confirm('<%:Are you sure you want to clear the log?%>')) {
+            logContent.innerHTML = '<span style="color:#888;"><%:Log cleared.%></span>';
+        }
+    });
+    
+    logTypeSelect.addEventListener('change', loadLog);
+    
+    // Auto-refresh every 5 seconds
+    var autoRefresh = setInterval(loadLog, 5000);
+    
+    // Initial load
+    loadLog();
+});
+//]]>
+</script>
+
+<%+footer%>

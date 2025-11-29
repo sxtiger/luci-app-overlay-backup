@@ -1,0 +1,314 @@
+<%+header%>
+
+<h2 name="content"><%:Overlay Restore%></h2>
+
+<div class="cbi-map">
+    <div class="cbi-section">
+        <h3><%:Upload Backup File%></h3>
+        <div class="cbi-section-descr"><%:Upload a backup file from your computer to restore.%></div>
+        
+        <div class="cbi-value">
+            <label class="cbi-value-title"><%:Select File%></label>
+            <div class="cbi-value-field">
+                <input type="file" id="upload_file" accept=".tar.gz,.gz">
+                <div class="cbi-value-description"><%:Select a backup file (.tar.gz) to upload.%></div>
+            </div>
+        </div>
+        
+        <div class="cbi-page-actions">
+            <button class="btn cbi-button cbi-button-action" id="btn_upload"><%:Upload%></button>
+        </div>
+        
+        <div id="upload_progress" style="display:none; margin-top:10px;">
+            <progress id="progress_bar" value="0" max="100" style="width:100%;"></progress>
+            <span id="progress_text">0%</span>
+        </div>
+    </div>
+    
+    <div class="cbi-section">
+        <h3><%:Select Backup to Restore%></h3>
+        <div class="cbi-section-descr"><%:Select a backup file from the list below to restore.%></div>
+        
+        <div class="cbi-value">
+            <label class="cbi-value-title"><%:Search Path%></label>
+            <div class="cbi-value-field">
+                <select id="search_path" class="cbi-input-select">
+                    <option value="/tmp/upload">/tmp/upload</option>
+                </select>
+            </div>
+        </div>
+        
+        <table class="table" id="restore_list">
+            <thead>
+                <tr class="tr table-titles">
+                    <th class="th" style="width:30px;"></th>
+                    <th class="th"><%:Filename%></th>
+                    <th class="th"><%:Size%></th>
+                    <th class="th"><%:Date%></th>
+                </tr>
+            </thead>
+            <tbody id="restore_tbody">
+                <tr class="tr">
+                    <td class="td" colspan="4"><%:Loading...%></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div id="backup_info" style="margin-top:15px; padding:10px; background:#f5f5f5; border-radius:4px; display:none;">
+            <h4><%:Backup Information%></h4>
+            <pre id="backup_info_content" style="margin:0; white-space:pre-wrap;"></pre>
+        </div>
+        
+        <div class="cbi-page-actions" style="margin-top:15px;">
+            <button class="btn cbi-button cbi-button-negative" id="btn_restore" disabled><%:Restore Selected Backup%></button>
+        </div>
+    </div>
+</div>
+
+<div id="modal_overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
+    <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; padding:20px; border-radius:8px; min-width:400px; max-width:600px;">
+        <h3 id="modal_title"><%:Processing%></h3>
+        <div id="modal_message"><%:Please wait...%></div>
+        <div id="modal_buttons" style="text-align:right; margin-top:15px;">
+            <button class="btn cbi-button" id="modal_cancel" style="display:none; margin-right:10px;"><%:Cancel%></button>
+            <button class="btn cbi-button cbi-button-negative" id="modal_confirm" style="display:none;"><%:Confirm Restore%></button>
+            <button class="btn cbi-button" id="modal_close" style="display:none;"><%:Close%></button>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+document.addEventListener('DOMContentLoaded', function() {
+    var searchPathSelect = document.getElementById('search_path');
+    var restoreTbody = document.getElementById('restore_tbody');
+    var btnRestore = document.getElementById('btn_restore');
+    var btnUpload = document.getElementById('btn_upload');
+    var uploadFile = document.getElementById('upload_file');
+    var uploadProgress = document.getElementById('upload_progress');
+    var progressBar = document.getElementById('progress_bar');
+    var progressText = document.getElementById('progress_text');
+    var backupInfo = document.getElementById('backup_info');
+    var backupInfoContent = document.getElementById('backup_info_content');
+    
+    var selectedBackup = null;
+    
+    // Load mounted devices
+    function loadMountedDevices() {
+        fetch('<%=luci.dispatcher.build_url("admin/system/overlay_backup/api/list_mounted")%>')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.mounted) {
+                    searchPathSelect.innerHTML = '';
+                    data.mounted.forEach(function(path) {
+                        var option = document.createElement('option');
+                        option.value = path;
+                        option.textContent = path;
+                        searchPathSelect.appendChild(option);
+                    });
+                }
+                loadBackupList();
+            });
+    }
+    
+    // Load backup list
+    function loadBackupList() {
+        var path = searchPathSelect.value;
+        fetch('<%=luci.dispatcher.build_url("admin/system/overlay_backup/api/list_backups")%>?path=' + encodeURIComponent(path))
+            .then(response => response.json())
+            .then(data => {
+                restoreTbody.innerHTML = '';
+                selectedBackup = null;
+                btnRestore.disabled = true;
+                backupInfo.style.display = 'none';
+                
+                if (data.success && data.backups && data.backups.length > 0) {
+                    data.backups.forEach(function(backup) {
+                        var tr = document.createElement('tr');
+                        tr.className = 'tr';
+                        tr.style.cursor = 'pointer';
+                        tr.innerHTML = '<td class="td"><input type="radio" name="backup_select" value="' + backup.path + '"></td>' +
+                            '<td class="td">' + backup.filename + '</td>' +
+                            '<td class="td">' + backup.size + '</td>' +
+                            '<td class="td">' + backup.date + '</td>';
+                        tr.addEventListener('click', function(e) {
+                            if (e.target.type !== 'radio') {
+                                tr.querySelector('input[type="radio"]').checked = true;
+                            }
+                            selectBackup(backup.path);
+                        });
+                        restoreTbody.appendChild(tr);
+                    });
+                } else {
+                    restoreTbody.innerHTML = '<tr class="tr"><td class="td" colspan="4"><%:No backup files found. Please upload a backup file first.%></td></tr>';
+                }
+            });
+    }
+    
+    // Select backup
+    function selectBackup(path) {
+        selectedBackup = path;
+        btnRestore.disabled = false;
+        
+        // Load backup info
+        var formData = new FormData();
+        formData.append('file', path);
+        
+        fetch('<%=luci.dispatcher.build_url("admin/system/overlay_backup/api/backup_info")%>', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.info) {
+                backupInfoContent.textContent = data.info;
+                backupInfo.style.display = 'block';
+            }
+        });
+    }
+    
+    // Show modal
+    function showModal(title, message, options) {
+        options = options || {};
+        document.getElementById('modal_title').textContent = title;
+        document.getElementById('modal_message').innerHTML = message;
+        document.getElementById('modal_close').style.display = options.showClose ? 'inline-block' : 'none';
+        document.getElementById('modal_confirm').style.display = options.showConfirm ? 'inline-block' : 'none';
+        document.getElementById('modal_cancel').style.display = options.showCancel ? 'inline-block' : 'none';
+        document.getElementById('modal_overlay').style.display = 'block';
+    }
+    
+    // Hide modal
+    function hideModal() {
+        document.getElementById('modal_overlay').style.display = 'none';
+    }
+    
+    // Upload file
+    btnUpload.addEventListener('click', function() {
+        var file = uploadFile.files[0];
+        if (!file) {
+            alert('<%:Please select a file to upload.%>');
+            return;
+        }
+        
+        if (!file.name.match(/\.tar\.gz$/i) && !file.name.match(/_backup_.*\.tar\.gz$/i)) {
+            alert('<%:Invalid file format. Please select a .tar.gz backup file.%>');
+            return;
+        }
+        
+        uploadProgress.style.display = 'block';
+        progressBar.value = 0;
+        progressText.textContent = '0%';
+        
+        var formData = new FormData();
+        formData.append('backup_file', file);
+        
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '<%=luci.dispatcher.build_url("admin/system/overlay_backup/api/upload")%>', true);
+        
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                var percent = Math.round((e.loaded / e.total) * 100);
+                progressBar.value = percent;
+                progressText.textContent = percent + '%';
+            }
+        };
+        
+        xhr.onload = function() {
+            uploadProgress.style.display = 'none';
+            try {
+                var data = JSON.parse(xhr.responseText);
+                if (data.success) {
+                    alert('<%:File uploaded successfully: %>' + data.filename);
+                    uploadFile.value = '';
+                    loadBackupList();
+                } else {
+                    alert('<%:Upload failed: %>' + data.message);
+                }
+            } catch (e) {
+                alert('<%:Upload failed: Unknown error%>');
+            }
+        };
+        
+        xhr.onerror = function() {
+            uploadProgress.style.display = 'none';
+            alert('<%:Upload failed: Network error%>');
+        };
+        
+        xhr.send(formData);
+    });
+    
+    // Restore button
+    btnRestore.addEventListener('click', function() {
+        if (!selectedBackup) {
+            alert('<%:Please select a backup file to restore.%>');
+            return;
+        }
+        
+        showModal(
+            '<%:Confirm Restore%>',
+            '<p style="color:#c00;font-weight:bold;"><%:Warning: This operation will restore the overlay filesystem and reboot the system.%></p>' +
+            '<p><%:Selected backup: %>' + selectedBackup + '</p>' +
+            '<p><%:Are you sure you want to continue?%></p>',
+            { showConfirm: true, showCancel: true }
+        );
+    });
+    
+    // Modal cancel button
+    document.getElementById('modal_cancel').addEventListener('click', hideModal);
+    
+    // Modal close button
+    document.getElementById('modal_close').addEventListener('click', hideModal);
+    
+    // Modal confirm button
+    document.getElementById('modal_confirm').addEventListener('click', function() {
+        showModal('<%:Restoring%>', '<%:Restoring backup and preparing to reboot...%><br><%:Please wait and do not close this page.%>', {});
+        
+        var formData = new FormData();
+        formData.append('file', selectedBackup);
+        
+        fetch('<%=luci.dispatcher.build_url("admin/system/overlay_backup/api/restore")%>', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.auto_reboot === '1') {
+                    showModal(
+                        '<%:Restore Complete%>',
+                        '<%:Restore completed successfully. The system is rebooting...%><br>' +
+                        '<%:Please wait for the system to restart and then refresh this page.%>',
+                        { showClose: false }
+                    );
+                    
+                    // Auto refresh after 60 seconds
+                    setTimeout(function() {
+                        location.reload();
+                    }, 60000);
+                } else {
+                    showModal(
+                        '<%:Restore Complete%>',
+                        '<%:Restore completed successfully. Please reboot the system manually to apply changes.%>',
+                        { showClose: true }
+                    );
+                }
+            } else {
+                showModal('<%:Restore Failed%>', data.message, { showClose: true });
+            }
+        })
+        .catch(err => {
+            showModal('<%:Error%>', err.message, { showClose: true });
+        });
+    });
+    
+    // Path change event
+    searchPathSelect.addEventListener('change', loadBackupList);
+    
+    // Initial load
+    loadMountedDevices();
+});
+//]]>
+</script>
+
+<%+footer%>

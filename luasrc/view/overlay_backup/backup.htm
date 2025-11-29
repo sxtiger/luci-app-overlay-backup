@@ -1,0 +1,203 @@
+<%+header%>
+
+<h2 name="content"><%:Overlay Backup%></h2>
+
+<div class="cbi-map">
+    <div class="cbi-section">
+        <h3><%:Create Backup%></h3>
+        <div class="cbi-section-descr"><%:Create a backup of the current overlay filesystem, including installed packages list and system configuration.%></div>
+        
+        <div class="cbi-value">
+            <label class="cbi-value-title"><%:Backup Path%></label>
+            <div class="cbi-value-field">
+                <select id="backup_path" class="cbi-input-select">
+                    <option value="/tmp/upload">/tmp/upload</option>
+                </select>
+                <div class="cbi-value-description"><%:Select the directory to save the backup file.%></div>
+            </div>
+        </div>
+        
+        <div class="cbi-value">
+            <label class="cbi-value-title"><%:Backup Filename%></label>
+            <div class="cbi-value-field">
+                <input type="text" id="backup_filename" class="cbi-input-text" readonly>
+                <div class="cbi-value-description"><%:The backup file will be named according to system version and current time.%></div>
+            </div>
+        </div>
+        
+        <div class="cbi-page-actions">
+            <button class="btn cbi-button cbi-button-action" id="btn_backup"><%:Create Backup%></button>
+        </div>
+    </div>
+    
+    <div class="cbi-section">
+        <h3><%:Existing Backups%></h3>
+        <div class="cbi-section-descr"><%:List of backup files in the selected directory.%></div>
+        
+        <table class="table" id="backup_list">
+            <thead>
+                <tr class="tr table-titles">
+                    <th class="th"><%:Filename%></th>
+                    <th class="th"><%:Size%></th>
+                    <th class="th"><%:Date%></th>
+                    <th class="th"><%:Actions%></th>
+                </tr>
+            </thead>
+            <tbody id="backup_tbody">
+                <tr class="tr">
+                    <td class="td" colspan="4"><%:Loading...%></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="modal_overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
+    <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; padding:20px; border-radius:8px; min-width:300px;">
+        <h3 id="modal_title"><%:Processing%></h3>
+        <p id="modal_message"><%:Please wait...%></p>
+        <div id="modal_buttons" style="text-align:right; margin-top:15px;">
+            <button class="btn cbi-button" id="modal_close" style="display:none;"><%:Close%></button>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+document.addEventListener('DOMContentLoaded', function() {
+    var backupPathSelect = document.getElementById('backup_path');
+    var backupFilenameInput = document.getElementById('backup_filename');
+    var btnBackup = document.getElementById('btn_backup');
+    var backupTbody = document.getElementById('backup_tbody');
+    
+    // Load mounted devices
+    function loadMountedDevices() {
+        fetch('<%=luci.dispatcher.build_url("admin/system/overlay_backup/api/list_mounted")%>')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.mounted) {
+                    backupPathSelect.innerHTML = '';
+                    data.mounted.forEach(function(path) {
+                        var option = document.createElement('option');
+                        option.value = path;
+                        option.textContent = path;
+                        backupPathSelect.appendChild(option);
+                    });
+                }
+                loadBackupList();
+            });
+    }
+    
+    // Load backup filename preview
+    function loadFilename() {
+        fetch('<%=luci.dispatcher.build_url("admin/system/overlay_backup/api/get_filename")%>')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    backupFilenameInput.value = data.filename;
+                }
+            });
+    }
+    
+    // Load backup list
+    function loadBackupList() {
+        var path = backupPathSelect.value;
+        fetch('<%=luci.dispatcher.build_url("admin/system/overlay_backup/api/list_backups")%>?path=' + encodeURIComponent(path))
+            .then(response => response.json())
+            .then(data => {
+                backupTbody.innerHTML = '';
+                if (data.success && data.backups && data.backups.length > 0) {
+                    data.backups.forEach(function(backup) {
+                        var tr = document.createElement('tr');
+                        tr.className = 'tr';
+                        tr.innerHTML = '<td class="td">' + backup.filename + '</td>' +
+                            '<td class="td">' + backup.size + '</td>' +
+                            '<td class="td">' + backup.date + '</td>' +
+                            '<td class="td">' +
+                            '<a href="/cgi-bin/luci/admin/system/flashops/backupfiles' + backup.path + '" class="btn cbi-button cbi-button-action" style="margin-right:5px;"><%:Download%></a>' +
+                            '<button class="btn cbi-button cbi-button-negative" onclick="deleteBackup(\'' + backup.path + '\')"><%:Delete%></button>' +
+                            '</td>';
+                        backupTbody.appendChild(tr);
+                    });
+                } else {
+                    backupTbody.innerHTML = '<tr class="tr"><td class="td" colspan="4"><%:No backup files found.%></td></tr>';
+                }
+            });
+    }
+    
+    // Show modal
+    function showModal(title, message, showClose) {
+        document.getElementById('modal_title').textContent = title;
+        document.getElementById('modal_message').textContent = message;
+        document.getElementById('modal_close').style.display = showClose ? 'inline-block' : 'none';
+        document.getElementById('modal_overlay').style.display = 'block';
+    }
+    
+    // Hide modal
+    function hideModal() {
+        document.getElementById('modal_overlay').style.display = 'none';
+    }
+    
+    // Create backup
+    btnBackup.addEventListener('click', function() {
+        showModal('<%:Creating Backup%>', '<%:Please wait while the backup is being created...%>', false);
+        
+        var formData = new FormData();
+        formData.append('path', backupPathSelect.value);
+        
+        fetch('<%=luci.dispatcher.build_url("admin/system/overlay_backup/api/backup")%>', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showModal('<%:Backup Complete%>', '<%:Backup created successfully: %>' + data.file, true);
+                loadBackupList();
+                loadFilename();
+            } else {
+                showModal('<%:Backup Failed%>', data.log || '<%:Unknown error occurred.%>', true);
+            }
+        })
+        .catch(err => {
+            showModal('<%:Error%>', err.message, true);
+        });
+    });
+    
+    // Delete backup
+    window.deleteBackup = function(file) {
+        if (!confirm('<%:Are you sure you want to delete this backup file?%>')) {
+            return;
+        }
+        
+        var formData = new FormData();
+        formData.append('file', file);
+        
+        fetch('<%=luci.dispatcher.build_url("admin/system/overlay_backup/api/delete_backup")%>', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadBackupList();
+            } else {
+                alert(data.message);
+            }
+        });
+    };
+    
+    // Modal close button
+    document.getElementById('modal_close').addEventListener('click', hideModal);
+    
+    // Path change event
+    backupPathSelect.addEventListener('change', loadBackupList);
+    
+    // Initial load
+    loadMountedDevices();
+    loadFilename();
+});
+//]]>
+</script>
+
+<%+footer%>
