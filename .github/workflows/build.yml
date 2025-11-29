@@ -3,6 +3,7 @@ name: Build OpenWrt Package
 on:
   push:
     branches: [ main, master ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -18,13 +19,13 @@ jobs:
       matrix:
         include:
           - target: x86-64
-            sdk_url: https://downloads.openwrt.org/releases/23.05.5/targets/x86/64/openwrt-sdk-23.05.5-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz
+            sdk_path: targets/x86/64
           - target: rockchip-armv8
-            sdk_url: https://downloads.openwrt.org/releases/23.05.5/targets/rockchip/armv8/openwrt-sdk-23.05.5-rockchip-armv8_gcc-12.3.0_musl.Linux-x86_64.tar.xz
+            sdk_path: targets/rockchip/armv8
           - target: mediatek-filogic
-            sdk_url: https://downloads.openwrt.org/releases/23.05.5/targets/mediatek/filogic/openwrt-sdk-23.05.5-mediatek-filogic_gcc-12.3.0_musl.Linux-x86_64.tar.xz
+            sdk_path: targets/mediatek/filogic
           - target: ramips-mt7621
-            sdk_url: https://downloads.openwrt.org/releases/23.05.5/targets/ramips/mt7621/openwrt-sdk-23.05.5-ramips-mt7621_gcc-12.3.0_musl.Linux-x86_64.tar.xz
+            sdk_path: targets/ramips/mt7621
 
     name: Build for ${{ matrix.target }}
     
@@ -35,18 +36,34 @@ jobs:
       - name: Setup build environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential gawk gcc-multilib flex git gettext libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev
+          sudo apt-get install -y build-essential gawk gcc-multilib flex git gettext libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev wget curl
 
-      - name: Download SDK
+      - name: Download and extract SDK
         run: |
-          wget -q "${{ matrix.sdk_url }}" -O sdk.tar.xz
+          SDK_BASE="https://downloads.openwrt.org/releases/23.05.5/${{ matrix.sdk_path }}"
+          echo "Looking for SDK at: $SDK_BASE"
+          
+          # Get SDK filename dynamically
+          SDK_FILE=$(curl -s "$SDK_BASE/" | grep -oP 'openwrt-sdk-[^"<>]+\.tar\.xz' | head -1)
+          
+          if [ -z "$SDK_FILE" ]; then
+            echo "::error::Could not find SDK file for ${{ matrix.target }}"
+            exit 1
+          fi
+          
+          echo "Found SDK: $SDK_FILE"
+          wget -q --show-progress "$SDK_BASE/$SDK_FILE" -O sdk.tar.xz
+          
+          echo "Extracting SDK..."
           tar -xJf sdk.tar.xz
           mv openwrt-sdk-* sdk
+          echo "SDK ready"
 
       - name: Setup package
         run: |
           mkdir -p sdk/package/${{ env.PACKAGE_NAME }}
           cp -r Makefile htdocs root po sdk/package/${{ env.PACKAGE_NAME }}/
+          ls -la sdk/package/${{ env.PACKAGE_NAME }}/
 
       - name: Update feeds
         working-directory: sdk
@@ -64,16 +81,22 @@ jobs:
       - name: Build
         working-directory: sdk
         run: |
-          make package/${{ env.PACKAGE_NAME }}/compile V=s -j$(nproc) || make package/${{ env.PACKAGE_NAME }}/compile V=s -j1
+          make package/${{ env.PACKAGE_NAME }}/compile V=s -j$(nproc) 2>&1 | tee build.log || {
+            echo "::warning::Parallel build failed, retrying with -j1"
+            make package/${{ env.PACKAGE_NAME }}/compile V=s -j1 2>&1 | tee -a build.log
+          }
 
       - name: Prepare artifacts
         run: |
           mkdir -p artifacts
-          find sdk/bin -name "*.ipk" | xargs -I {} cp {} artifacts/
+          find sdk/bin -name "*.ipk" | xargs -I {} cp {} artifacts/ 2>/dev/null || true
+          
           cd artifacts
           for f in *.ipk; do
             [ -f "$f" ] && mv "$f" "${f%.ipk}_${{ matrix.target }}.ipk"
           done
+          
+          echo "Built packages:"
           ls -la
 
       - name: Upload artifacts
@@ -81,6 +104,7 @@ jobs:
         with:
           name: ${{ env.PACKAGE_NAME }}-${{ matrix.target }}
           path: artifacts/*.ipk
+          if-no-files-found: warn
 
   collect:
     needs: build
@@ -92,13 +116,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: packages
+          pattern: ${{ env.PACKAGE_NAME }}-*
           merge-multiple: true
         continue-on-error: true
 
       - name: List packages
         run: |
           echo "=== Built packages ==="
-          ls -la packages/ 2>/dev/null || echo "No packages"
+          ls -la packages/ 2>/dev/null || echo "No packages found"
+          mkdir -p packages
 
       - name: Upload all packages
         uses: actions/upload-artifact@v4
@@ -107,3 +133,25 @@ jobs:
           name: all-packages
           path: packages/*.ipk
           retention-days: 90
+
+  release:
+    needs: collect
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: all-packages
+          path: packages
+        continue-on-error: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        if: hashFiles('packages/*.ipk') != ''
+        with:
+          files: packages/*.ipk
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
