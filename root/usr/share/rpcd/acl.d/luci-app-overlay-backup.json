@@ -1,20 +1,22 @@
 {
-    "luci-app-overlay-backup": {
-        "description": "Grant access to Overlay Backup configuration",
-        "read": {
-            "uci": ["overlay_backup"],
-            "file": {
-                "/tmp/overlay_backup.log": ["read"],
-                "/tmp/overlay_restore.log": ["read"],
-                "/etc/openwrt_release": ["read"]
-            }
-        },
-        "write": {
-            "uci": ["overlay_backup"],
-            "file": {
-                "/tmp/upload/*": ["write"],
-                "/mnt/*": ["write"]
-            }
-        }
-    }
+	"luci-app-overlay-backup": {
+		"description": "Grant access to Overlay Backup configuration",
+		"read": {
+			"uci": [ "overlay_backup" ],
+			"file": {
+				"/tmp/overlay_backup.log": [ "read" ],
+				"/tmp/overlay_restore.log": [ "read" ],
+				"/etc/openwrt_release": [ "read" ],
+				"/tmp/upload/*": [ "read" ],
+				"/mnt/*": [ "read" ]
+			}
+		},
+		"write": {
+			"uci": [ "overlay_backup" ],
+			"file": {
+				"/tmp/upload/*": [ "write" ],
+				"/mnt/*": [ "write" ]
+			}
+		}
+	}
 }

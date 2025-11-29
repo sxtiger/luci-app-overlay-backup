@@ -1,0 +1,95 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+msgid "Overlay Backup"
+msgstr "Overlay 备份"
+
+msgid "Backup and restore the overlay filesystem."
+msgstr "备份和恢复 overlay 文件系统。"
+
+msgid "Backup Settings"
+msgstr "备份设置"
+
+msgid "Backup Path"
+msgstr "备份路径"
+
+msgid "Backup Filename"
+msgstr "备份文件名"
+
+msgid "Create Backup"
+msgstr "创建备份"
+
+msgid "Create Backup Now"
+msgstr "立即创建备份"
+
+msgid "Auto Reboot After Restore"
+msgstr "恢复后自动重启"
+
+msgid "Existing Backups"
+msgstr "已有备份"
+
+msgid "Backup Files"
+msgstr "备份文件"
+
+msgid "Loading backup list..."
+msgstr "正在加载备份列表..."
+
+msgid "No backup files found."
+msgstr "未找到备份文件。"
+
+msgid "Filename"
+msgstr "文件名"
+
+msgid "Size"
+msgstr "大小"
+
+msgid "Date"
+msgstr "日期"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Download"
+msgstr "下载"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Restore"
+msgstr "恢复"
+
+msgid "Creating Backup"
+msgstr "正在创建备份"
+
+msgid "Please wait while the backup is being created..."
+msgstr "正在创建备份，请稍候..."
+
+msgid "Backup created successfully: "
+msgstr "备份创建成功："
+
+msgid "Backup failed: "
+msgstr "备份失败："
+
+msgid "Are you sure you want to delete this backup?"
+msgstr "确定要删除此备份吗？"
+
+msgid "Warning: This will restore the backup and reboot the system. Continue?"
+msgstr "警告：这将恢复备份并重启系统。是否继续？"
+
+msgid "Restoring"
+msgstr "正在恢复"
+
+msgid "Restoring backup, please wait..."
+msgstr "正在恢复备份，请稍候..."
+
+msgid "Rebooting"
+msgstr "正在重启"
+
+msgid "System is rebooting. Please wait and refresh the page."
+msgstr "系统正在重启。请等待并刷新页面。"
+
+msgid "Restore complete. Please reboot manually."
+msgstr "恢复完成。请手动重启。"
+
+msgid "Restore failed: "
+msgstr "恢复失败："

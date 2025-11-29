@@ -1,0 +1,14 @@
+{
+	"admin/system/overlay_backup": {
+		"title": "Overlay Backup",
+		"order": 90,
+		"action": {
+			"type": "view",
+			"path": "overlay_backup/backup"
+		},
+		"depends": {
+			"acl": [ "luci-app-overlay-backup" ],
+			"uci": { "overlay_backup": true }
+		}
+	}
+}

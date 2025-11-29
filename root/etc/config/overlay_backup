@@ -1,3 +1,3 @@
 config settings 'main'
-    option backup_path '/tmp/upload'
-    option auto_reboot '1'
+	option backup_path '/tmp/upload'
+	option auto_reboot '1'
