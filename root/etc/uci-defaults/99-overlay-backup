@@ -15,5 +15,7 @@ uci -q get overlay_backup.main > /dev/null || {
 # Create upload directory
 mkdir -p /tmp/upload
 
+# Restart rpcd to reload ACL
+/etc/init.d/rpcd restart 2>/dev/null
+
 exit 0
-EOF

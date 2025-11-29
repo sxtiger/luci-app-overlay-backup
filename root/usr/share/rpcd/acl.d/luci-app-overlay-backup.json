@@ -2,16 +2,28 @@
 	"luci-app-overlay-backup": {
 		"description": "Grant access to Overlay Backup configuration",
 		"read": {
+			"ubus": {
+				"file": [ "exec", "read", "stat", "list", "remove" ],
+				"luci": [ "*" ],
+				"uci": [ "get", "state" ]
+			},
 			"uci": [ "overlay_backup" ],
 			"file": {
+				"/usr/bin/overlay-backup.sh": [ "exec" ],
+				"/usr/bin/overlay-restore.sh": [ "exec" ],
 				"/tmp/overlay_backup.log": [ "read" ],
 				"/tmp/overlay_restore.log": [ "read" ],
 				"/etc/openwrt_release": [ "read" ],
-				"/tmp/upload/*": [ "read" ],
-				"/mnt/*": [ "read" ]
+				"/tmp/upload/*": [ "read", "list" ],
+				"/mnt/*": [ "read", "list" ],
+				"/overlay/*": [ "read", "list" ]
 			}
 		},
 		"write": {
+			"ubus": {
+				"file": [ "exec", "write", "remove" ],
+				"uci": [ "set", "add", "apply", "confirm", "delete", "rename", "commit" ]
+			},
 			"uci": [ "overlay_backup" ],
 			"file": {
 				"/tmp/upload/*": [ "write" ],
