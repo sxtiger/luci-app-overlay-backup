@@ -14,21 +14,8 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86-64
-            sdk_path: targets/x86/64
-          - target: rockchip-armv8
-            sdk_path: targets/rockchip/armv8
-          - target: mediatek-filogic
-            sdk_path: targets/mediatek/filogic
-          - target: ramips-mt7621
-            sdk_path: targets/ramips/mt7621
+    name: Build for x86-64
 
-    name: Build for ${{ matrix.target }}
-    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,22 +27,36 @@ jobs:
 
       - name: Download and extract SDK
         run: |
-          SDK_BASE="https://downloads.openwrt.org/releases/23.05.5/${{ matrix.sdk_path }}"
+          # OpenWrt 24.10.0 x86-64 SDK
+          SDK_BASE="https://downloads.openwrt.org/releases/24.10.0/targets/x86/64"
           echo "Looking for SDK at: $SDK_BASE"
           
           # Get SDK filename dynamically
-          SDK_FILE=$(curl -s "$SDK_BASE/" | grep -oP 'openwrt-sdk-[^"<>]+\.tar\.xz' | head -1)
+          SDK_FILE=$(curl -s "$SDK_BASE/" | grep -oP 'openwrt-sdk-24\.10\.0-x86-64[^"<>]+\.tar\.(xz|zst)' | head -1)
           
           if [ -z "$SDK_FILE" ]; then
-            echo "::error::Could not find SDK file for ${{ matrix.target }}"
+            echo "Trying alternative pattern..."
+            SDK_FILE=$(curl -s "$SDK_BASE/" | grep -oP 'openwrt-sdk[^"<>]*x86-64[^"<>]*\.tar\.(xz|zst)' | head -1)
+          fi
+          
+          if [ -z "$SDK_FILE" ]; then
+            echo "::error::Could not find SDK file for x86-64"
+            echo "Available files:"
+            curl -s "$SDK_BASE/" | grep -oP 'openwrt-sdk[^"<>]+' | head -10
             exit 1
           fi
           
           echo "Found SDK: $SDK_FILE"
-          wget -q --show-progress "$SDK_BASE/$SDK_FILE" -O sdk.tar.xz
+          wget -q --show-progress "$SDK_BASE/$SDK_FILE" -O sdk.tar.${SDK_FILE##*.}
           
           echo "Extracting SDK..."
-          tar -xJf sdk.tar.xz
+          if [[ "$SDK_FILE" == *.zst ]]; then
+            sudo apt-get install -y zstd
+            tar --use-compress-program=unzstd -xf sdk.tar.zst
+          else
+            tar -xJf sdk.tar.xz
+          fi
+          
           mv openwrt-sdk-* sdk
           echo "SDK ready"
 
@@ -87,71 +88,55 @@ jobs:
           }
 
       - name: Prepare artifacts
+        id: prepare
         run: |
           mkdir -p artifacts
           find sdk/bin -name "*.ipk" | xargs -I {} cp {} artifacts/ 2>/dev/null || true
           
           cd artifacts
-          for f in *.ipk; do
-            [ -f "$f" ] && mv "$f" "${f%.ipk}_${{ matrix.target }}.ipk"
-          done
-          
           echo "Built packages:"
           ls -la
+          
+          # Get version from ipk filename
+          IPK_FILE=$(ls *.ipk 2>/dev/null | head -1)
+          if [ -n "$IPK_FILE" ]; then
+            echo "ipk_file=$IPK_FILE" >> $GITHUB_OUTPUT
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PACKAGE_NAME }}-${{ matrix.target }}
+          name: ${{ env.PACKAGE_NAME }}-x86-64
           path: artifacts/*.ipk
           if-no-files-found: warn
-
-  collect:
-    needs: build
-    runs-on: ubuntu-22.04
-    if: always()
-    
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: packages
-          pattern: ${{ env.PACKAGE_NAME }}-*
-          merge-multiple: true
-        continue-on-error: true
-
-      - name: List packages
-        run: |
-          echo "=== Built packages ==="
-          ls -la packages/ 2>/dev/null || echo "No packages found"
-          mkdir -p packages
-
-      - name: Upload all packages
-        uses: actions/upload-artifact@v4
-        if: hashFiles('packages/*.ipk') != ''
-        with:
-          name: all-packages
-          path: packages/*.ipk
           retention-days: 90
 
   release:
-    needs: collect
+    needs: build
     runs-on: ubuntu-22.04
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     
     steps:
-      - name: Download packages
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: all-packages
+          name: ${{ env.PACKAGE_NAME }}-x86-64
           path: packages
-        continue-on-error: true
+
+      - name: List packages
+        run: |
+          echo "=== Release packages ==="
+          ls -la packages/ 2>/dev/null || echo "No packages found"
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: hashFiles('packages/*.ipk') != ''
         with:
           files: packages/*.ipk
           generate_release_notes: true
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

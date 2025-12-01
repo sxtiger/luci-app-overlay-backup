@@ -5,18 +5,30 @@
 			"ubus": {
 				"file": [ "exec", "read", "stat", "list", "remove" ],
 				"luci": [ "*" ],
-				"uci": [ "get", "state" ]
+				"uci": [ "get", "state" ],
+				"system": [ "board", "info" ]
 			},
 			"uci": [ "overlay_backup" ],
 			"file": {
 				"/usr/bin/overlay-backup.sh": [ "exec" ],
 				"/usr/bin/overlay-restore.sh": [ "exec" ],
+				"/bin/tar": [ "exec" ],
+				"/bin/gzip": [ "exec" ],
+				"/sbin/reboot": [ "exec" ],
 				"/tmp/overlay_backup.log": [ "read" ],
 				"/tmp/overlay_restore.log": [ "read" ],
 				"/etc/openwrt_release": [ "read" ],
-				"/tmp/upload/*": [ "read", "list" ],
+				"/etc/opkg/distfeeds.conf": [ "read" ],
+				"/tmp/upload": [ "read", "list", "write" ],
+				"/tmp/upload/*": [ "read", "list", "write" ],
+				"/tmp/overlay_backup_temp_*": [ "read", "list", "write" ],
+				"/tmp/overlay_restore_temp_*": [ "read", "list", "write" ],
+				"/mnt": [ "read", "list" ],
 				"/mnt/*": [ "read", "list" ],
-				"/overlay/*": [ "read", "list" ]
+				"/overlay": [ "read", "list" ],
+				"/overlay/*": [ "read", "list" ],
+				"/overlay/upper": [ "read", "list" ],
+				"/overlay/upper/*": [ "read", "list" ]
 			}
 		},
 		"write": {
@@ -26,8 +38,15 @@
 			},
 			"uci": [ "overlay_backup" ],
 			"file": {
+				"/tmp/upload": [ "write" ],
 				"/tmp/upload/*": [ "write" ],
-				"/mnt/*": [ "write" ]
+				"/tmp/overlay_backup_temp_*": [ "write" ],
+				"/tmp/overlay_restore_temp_*": [ "write" ],
+				"/mnt/*": [ "write" ],
+				"/overlay": [ "write" ],
+				"/overlay/*": [ "write" ],
+				"/overlay/upper": [ "write" ],
+				"/overlay/upper/*": [ "write" ]
 			}
 		}
 	}

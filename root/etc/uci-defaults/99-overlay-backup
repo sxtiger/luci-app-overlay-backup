@@ -1,8 +1,11 @@
 #!/bin/sh
 
-# Set executable permissions
-chmod +x /usr/bin/overlay-backup.sh 2>/dev/null
-chmod +x /usr/bin/overlay-restore.sh 2>/dev/null
+# Overlay Backup UCI Defaults Script
+# Sets up permissions and initial configuration
+
+# Set executable permissions for scripts
+chmod 755 /usr/bin/overlay-backup.sh 2>/dev/null
+chmod 755 /usr/bin/overlay-restore.sh 2>/dev/null
 
 # Initialize config if not exists
 uci -q get overlay_backup.main > /dev/null || {
@@ -12,10 +15,18 @@ uci -q get overlay_backup.main > /dev/null || {
 	uci commit overlay_backup
 }
 
-# Create upload directory
+# Create upload directory with proper permissions
 mkdir -p /tmp/upload
+chmod 755 /tmp/upload
 
-# Restart rpcd to reload ACL
-/etc/init.d/rpcd restart 2>/dev/null
+# Ensure overlay directory is accessible
+if [ -d /overlay ]; then
+	chmod 755 /overlay 2>/dev/null || true
+fi
+
+# Restart rpcd to reload ACL permissions
+if [ -x /etc/init.d/rpcd ]; then
+	/etc/init.d/rpcd restart 2>/dev/null &
+fi
 
 exit 0
