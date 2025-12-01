@@ -66,6 +66,21 @@ msgstr "正在加载备份列表..."
 msgid "No backup files found."
 msgstr "未找到备份文件。"
 
+msgid "No backup files found in "
+msgstr "在此路径未找到备份文件："
+
+msgid "Current path: "
+msgstr "当前路径："
+
+msgid "Failed to load backup list: "
+msgstr "加载备份列表失败："
+
+msgid "Backup location: "
+msgstr "备份位置："
+
+msgid "Upload location: "
+msgstr "上传位置："
+
 msgid "Filename"
 msgstr "文件名"
 
